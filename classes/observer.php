@@ -45,7 +45,7 @@ class local_addad_observer
 
 		// Find AD Group from course
 		$field_handler = \core_customfield\handler::get_handler('core_course', 'course');
-		$course_fields = $field_handler->get_instance_data($event->courseid);
+		$course_fields = $field_handler->get_instance_data($event->courseid, true);
 		$adgroup = "";
 		foreach( $course_fields as $field)
 		{
