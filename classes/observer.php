@@ -34,18 +34,30 @@ class local_addad_observer
      *
      * @param \core\event\course_completed $event
      */
-	public static function adduser(\core\event\course_completed $event) 
-	{
+    public static function adduser(\core\event\course_completed $event) 
+    {
+
+	$filename = "/var/www/log/snowie-addad.log";
+	$file_handle = fopen($filename, 'a');
+	fwrite($file_handle, "In course completed!".PHP_EOL);
+	fflush($file_handle);
+
+        try {
+		// JGP debug
+                error_log("local_add_observer has been called - Entry");
+
 		global $DB;
 		$TABLENAME = "addad_completion";
 
 		// Get username of completed user
 		$user = $DB->get_record('user', array('id'=>$event->relateduserid));
 		$username = $user->username;
+	fwrite($file_handle, "Found username: " . $username.PHP_EOL);
+	fflush($file_handle);
 
 		// Find AD Group from course
 		$field_handler = \core_customfield\handler::get_handler('core_course', 'course');
-		$course_fields = $field_handler->get_instance_data($event->courseid);
+		$course_fields = $field_handler->get_instance_data($event->courseid, true);
 		$adgroup = "";
 		foreach( $course_fields as $field)
 		{
@@ -55,6 +67,8 @@ class local_addad_observer
 				break;
 			}
 		}
+		fwrite($file_handle, "Ad Group?: " . $adgroup.PHP_EOL);
+                fflush($file_handle);
 		// If no AD group, stop
 		if( empty($adgroup) )
 		{
@@ -66,7 +80,8 @@ class local_addad_observer
 		$logEntry->courseid = $event->courseid;
 		$logEntry->timestamp = time();
 		$logEntry->username = $username;
-
+		// JGP 2025-09-07 - debugging
+                $logEntry->comments = "DEBUG: Initial row insert";
 
 		$logEntry->id =	$DB->insert_record($TABLENAME, $logEntry);
 
@@ -82,12 +97,28 @@ class local_addad_observer
 		//$root = $record->value;
 		$root = "dc=dms,dc=local";
 
+		// JGP 2025-09-07 - debugging
+		$logEntry->comments = "DEBUG: LDAP $host_url $bind_dn $bind_pw";
+		$DB->update_record( $TABLENAME, $logEntry);
+		
+	fwrite($file_handle, "Attempting AD Bind...".PHP_EOL);
+	fflush($file_handle);
 		// Setup connection and bind
 		$connection = ldap_connect($host_url);
 		ldap_set_option($connection,LDAP_OPT_PROTOCOL_VERSION,3);
 		ldap_set_option($connection, LDAP_OPT_REFERRALS,0);
 		$session=ldap_bind($connection, $bind_dn, $bind_pw);
 
+		// JGP 2025-09-07 - debugging
+		if( empty($session))
+		{
+
+	fwrite($file_handle, "No AD Session!".PHP_EOL);
+	fflush($file_handle);
+			$logEntry->comments = "DEBUG: LDAP session is empty";
+			$DB->update_record( $TABLENAME, $logEntry);
+			return;
+		}
 		// Search for the user and get DN
 		$usersearch = ldap_search($connection, $root,"sAMAccountName=$username");
 		$userinfo = ldap_get_entries($connection, $usersearch);
@@ -98,33 +129,55 @@ class local_addad_observer
 		$groupinfo = ldap_get_entries($connection, $groupsearch);
 		$groupdn = $groupinfo[0]["distinguishedname"][0];
 
+	fwrite($file_handle, "UserDN: ".$userdn." ;; GroupDN: ".$groupdn.PHP_EOL);
+	fflush($file_handle);
 		if( empty($userdn))
 		{
 			$logEntry->comments = "Could not find username $username";
-			$DB->update_record( 'addad_completion', $logEntry);
+			$DB->update_record( $TABLENAME, $logEntry );
 			return;
 		}
 		if( empty($groupdn))
 		{
 			$logEntry->comments = "Could not find group $adgroup";
-			$DB->update_record( 'addad_completion', $logEntry);
-			return;
-		}
-		
-
-		// Check for group membership already
-		if( local_addad_observer::checkGroupEx($connection, $userdn, $groupdn) )
-		{
-			$logEntry->comments = "Already in group";
 			$DB->update_record( $TABLENAME, $logEntry );
 			return;
 		}
+		
+		// JGP 2025-09-07 - debugging
+		$logEntry->comments = "DEBUG: Found user and group OK";
+		$DB->update_record( $TABLENAME, $logEntry);
 
+		// Check for group membership already
+		try {
+			if( local_addad_observer::checkGroupEx($connection, $userdn, $groupdn) )
+			{
+				$logEntry->comments = "Already in group";
+				$DB->update_record( $TABLENAME, $logEntry );
+				return;
+			}
+		} catch (Exception $e) {
+			$logEntry->comments = "DEBUG: exception checking group membership $e->getMessage()";
+			$DB->update_record( $TABLENAME, $logEntry);
+			return;
+		}
+
+		// JGP 2025-09-07 - debugging
+		$logEntry->comments = "DEBUG: User not in group, attempting to add";
+		$DB->update_record( $TABLENAME, $logEntry);
+		
 		// Add user to group
-		$res = ldap_mod_add( $connection, $groupdn, array("member"=>$userdn));
-		if(!res)
+		try {
+			$res = ldap_mod_add( $connection, $groupdn, array("member"=>$userdn));
+		} catch (Exception $e) {
+			$logEntry->comments = "DEBUG: exception adding to group $e->getMessage()";
+			$DB->update_record( $TABLENAME, $logEntry);
+			return;
+		}
+
+		if(! $res)
 		{
-			$logEntry->comments = "LDAP returned false for user $username and group $adgroup";
+			$logEntry->comments = "LDAP returned $res for user $username and group $adgroup";
 			$DB->update_record( $TABLENAME, $logEntry );
 			return;
 		}
@@ -134,9 +187,10 @@ class local_addad_observer
                         $logEntry->comments = $adgroup;
 			$DB->update_record( $TABLENAME, $logEntry );
 		}
-
-		
-    }
+	} finally {
+	    fclose($file_handle);
+	}
+    } // end function
 
     public static function checkGroupEx($ad, $userdn, $groupdn)
     {
