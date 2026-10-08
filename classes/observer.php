@@ -120,12 +120,12 @@ class local_addad_observer
 			return;
 		}
 		// Search for the user and get DN
-		$usersearch = ldap_search($connection, $root,"sAMAccountName=$username");
+		$usersearch = ldap_search($connection, $root, "(sAMAccountName=" . ldap_escape($username, "", LDAP_ESCAPE_FILTER) . ")");
 		$userinfo = ldap_get_entries($connection, $usersearch);
 		$userdn = $userinfo[0]["distinguishedname"][0];
 
 		// Search for the group and get DN
-		$groupsearch = ldap_search($connection, $root, "CN=$adgroup");
+		$groupsearch = ldap_search($connection, $root, "(cn=" . ldap_escape($adgroup, "", LDAP_ESCAPE_FILTER) . ")");
 		$groupinfo = ldap_get_entries($connection, $groupsearch);
 		$groupdn = $groupinfo[0]["distinguishedname"][0];
 
@@ -185,6 +185,13 @@ class local_addad_observer
 		{
 			$logEntry->added = "true";
                         $logEntry->comments = $adgroup;
+			$DB->update_record( $TABLENAME, $logEntry );
+		}
+	} catch (\Throwable $e) {
+		fwrite($file_handle, "Uncaught error: " . $e->getMessage() . PHP_EOL);
+		fflush($file_handle);
+		if (isset($logEntry)) {
+			$logEntry->comments = "ERROR: " . $e->getMessage();
 			$DB->update_record( $TABLENAME, $logEntry );
 		}
 	} finally {
