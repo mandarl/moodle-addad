@@ -97,10 +97,6 @@ class local_addad_observer
 		//$root = $record->value;
 		$root = "dc=dms,dc=local";
 
-		// JGP 2025-09-07 - debugging
-		$logEntry->comments = "DEBUG: LDAP $host_url $bind_dn $bind_pw";
-		$DB->update_record( $TABLENAME, $logEntry);
-		
 	fwrite($file_handle, "Attempting AD Bind...".PHP_EOL);
 	fflush($file_handle);
 		// Setup connection and bind
@@ -152,6 +148,7 @@ class local_addad_observer
 		try {
 			if( local_addad_observer::checkGroupEx($connection, $userdn, $groupdn) )
 			{
+				$logEntry->added = "true";
 				$logEntry->comments = "Already in group";
 				$DB->update_record( $TABLENAME, $logEntry );
 				return;
