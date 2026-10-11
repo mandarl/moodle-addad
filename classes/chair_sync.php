@@ -42,8 +42,9 @@ class chair_sync {
     /**
      * Parses the chairmappings setting.
      *
-     * @param string $text One "category idnumber = AD group CN" per line; blank and # lines are ignored.
-     * @return string[] AD group CN keyed by category idnumber.
+     * @param string $text One "category idnumber = AD group CN[, AD group CN...]" per line; blank and # lines
+     *     are ignored.
+     * @return array[] AD group CNs keyed by category idnumber.
      */
     public static function parse_mappings(string $text): array {
         $mappings = [];
@@ -52,9 +53,10 @@ class chair_sync {
             if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) {
                 continue;
             }
-            [$idnumber, $group] = array_map('trim', explode('=', $line, 2));
-            if ($idnumber !== '' && $group !== '') {
-                $mappings[$idnumber] = $group;
+            [$idnumber, $groups] = array_map('trim', explode('=', $line, 2));
+            $groups = array_values(array_filter(array_map('trim', explode(',', $groups)), 'strlen'));
+            if ($idnumber !== '' && $groups) {
+                $mappings[$idnumber] = $groups;
             }
         }
         return $mappings;
@@ -90,10 +92,12 @@ class chair_sync {
         }
         $contexts = array_filter(array_map('trim', explode(';', (string) $auth->config->contexts)));
 
-        foreach ($mappings as $idnumber => $group) {
-            $entry = ['category' => $idnumber, 'group' => $group, 'added' => [], 'removed' => [], 'error' => null];
+        foreach ($mappings as $idnumber => $groups) {
+            $entry = [
+                'category' => $idnumber, 'group' => implode(', ', $groups), 'added' => [], 'removed' => [], 'error' => null,
+            ];
             try {
-                self::sync_category($ldap, $contexts, $role, $idnumber, $group, $dryrun, $entry);
+                self::sync_category($ldap, $contexts, $role, $idnumber, $groups, $dryrun, $entry);
             } catch (\Throwable $e) {
                 $entry['error'] = $e->getMessage();
             }
@@ -105,11 +109,11 @@ class chair_sync {
     }
 
     /**
-     * Syncs one category. Throws before changing anything if the group can't be read, so a failed
-     * lookup never removes existing chairs.
+     * Syncs one category from the union of its groups. Throws before changing anything if any group
+     * can't be read, so a failed or mistyped lookup never removes existing chairs.
      */
     protected static function sync_category($ldap, array $contexts, \stdClass $role, string $idnumber,
-            string $group, bool $dryrun, array &$entry): void {
+            array $groups, bool $dryrun, array &$entry): void {
         global $DB;
 
         $category = $DB->get_record('course_categories', ['idnumber' => $idnumber, 'parent' => 0]);
@@ -118,7 +122,11 @@ class chair_sync {
         }
         $catcontext = \context_coursecat::instance($category->id);
 
-        $usernames = self::group_usernames($ldap, $contexts, $group);
+        $usernames = [];
+        foreach ($groups as $group) {
+            $usernames = array_merge($usernames, self::group_usernames($ldap, $contexts, $group));
+        }
+        $usernames = array_values(array_unique($usernames));
         $wanted = [];
         if ($usernames) {
             [$insql, $params] = $DB->get_in_or_equal($usernames, SQL_PARAMS_NAMED);

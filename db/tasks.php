@@ -27,7 +27,7 @@ $tasks = [
     [
         'classname' => 'local_addad\task\sync_chair_roles',
         'blocking' => 0,
-        'minute' => 'R',
+        'minute' => '*/15',
         'hour' => '*',
         'day' => '*',
         'month' => '*',
