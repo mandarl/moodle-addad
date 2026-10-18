@@ -80,6 +80,10 @@ class announcer {
      * @throws \moodle_exception If the portal could not be reached at all.
      */
     public static function send(string $url, string $secret, string $body): int {
+        global $CFG;
+        // The curl class is not autoloaded; CLI scripts and some cron paths haven't loaded it yet.
+        require_once($CFG->libdir . '/filelib.php');
+
         $curl = new \curl();
         $curl->post($url, $body, [
             'CURLOPT_TIMEOUT' => self::TIMEOUT,
