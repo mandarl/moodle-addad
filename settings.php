@@ -32,4 +32,13 @@ if ($hassiteconfig) {
 
     $settings->add(new admin_setting_configtextarea('local_addad/chairmappings',
         get_string('chairmappings', 'local_addad'), get_string('chairmappings_desc', 'local_addad'), '', PARAM_TEXT));
+
+    $settings->add(new admin_setting_heading('local_addad/announceheading',
+        get_string('announceheading', 'local_addad'), get_string('announceheading_desc', 'local_addad')));
+
+    $settings->add(new admin_setting_configtext('local_addad/announceurl',
+        get_string('announceurl', 'local_addad'), get_string('announceurl_desc', 'local_addad'), '', PARAM_URL));
+
+    $settings->add(new admin_setting_configpasswordunmask('local_addad/announcesecret',
+        get_string('announcesecret', 'local_addad'), get_string('announcesecret_desc', 'local_addad'), ''));
 }

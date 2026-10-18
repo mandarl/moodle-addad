@@ -30,3 +30,11 @@ $string['chairrole_desc'] = 'Shortname of the role given to each committee chair
 $string['chairmappings'] = 'Chair groups';
 $string['chairmappings_desc'] = 'One mapping per line: <code>category idnumber = AD group name[, another AD group name]</code>. Every member of the listed AD groups (including nested groups) gets the chair role on that top-level category, and loses it when removed from all of them. Roles assigned by hand are not touched. Synced every 15 minutes, or run <code>php local/addad/cli/sync_chair_roles.php --dry-run</code>.';
 $string['task_syncchairroles'] = 'Sync committee chair groups to category roles';
+$string['announceheading'] = 'Tell the member portal about new courses';
+$string['announceheading_desc'] = 'When a course is created, shown, or its category or enrolment methods change, tell the DMS member portal so it can notify members who follow that committee. The portal works out which courses are actually new. Leave the URL empty to switch this off.';
+$string['announceurl'] = 'Portal webhook URL';
+$string['announceurl_desc'] = 'The portal address to notify, for example <code>https://members.example.org/webhook/moodle</code>. Empty switches the feature off.';
+$string['announcesecret'] = 'Portal webhook secret';
+$string['announcesecret_desc'] = 'Shared secret used to sign each request (header X-Addad-Signature). It must match the portal\'s ENV_MOODLE_WEBHOOK_SECRET.';
+$string['task_announcecoursechange'] = 'Tell the member portal the course catalog changed';
+$string['announcefailed'] = 'Could not tell the member portal about the course change: {$a}';

@@ -29,4 +29,32 @@ $observers = [['eventname' => '\core\event\course_completed',
                'callback' => 'local_addad_observer::adduser',
                'internal'  => true,
                'priority'  => 9999,
-	     ]];
+	     ],
+    // Tell the member portal when a course may have been published. Not internal, so these run after
+    // the edit is committed; the callbacks only queue an ad hoc task and never throw.
+    [
+        'eventname' => '\core\event\course_created',
+        'callback' => '\local_addad\course_observer::course_created',
+        'internal' => false,
+    ],
+    [
+        'eventname' => '\core\event\course_updated',
+        'callback' => '\local_addad\course_observer::course_updated',
+        'internal' => false,
+    ],
+    [
+        'eventname' => '\core\event\course_category_updated',
+        'callback' => '\local_addad\course_observer::course_category_updated',
+        'internal' => false,
+    ],
+    [
+        'eventname' => '\core\event\enrol_instance_created',
+        'callback' => '\local_addad\course_observer::enrol_instance_changed',
+        'internal' => false,
+    ],
+    [
+        'eventname' => '\core\event\enrol_instance_updated',
+        'callback' => '\local_addad\course_observer::enrol_instance_changed',
+        'internal' => false,
+    ],
+];
